@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../domain/calibration_profile.dart';
 import '../domain/camera_adapter.dart';
 import '../domain/camera_models.dart';
+import 'calibration_screen.dart';
 import 'camera_settings_screen.dart';
 
 class CameraDashboard extends StatefulWidget {
@@ -12,6 +14,7 @@ class CameraDashboard extends StatefulWidget {
 
 class _CameraDashboardState extends State<CameraDashboard> {
   List<CameraDevice> cameras = <CameraDevice>[];
+  final Map<String, CameraCalibrationProfile> calibrationProfiles = {};
   bool loading = true;
   bool recording = false;
   final Set<String> busyCameraIds = {};
@@ -28,6 +31,12 @@ class _CameraDashboardState extends State<CameraDashboard> {
     if (mounted) {
       setState(() {
         cameras = List<CameraDevice>.of(found);
+        for (final camera in cameras) {
+          calibrationProfiles.putIfAbsent(
+            camera.id,
+            () => const CameraCalibrationProfile(),
+          );
+        }
         loading = false;
       });
     }
@@ -79,6 +88,27 @@ class _CameraDashboardState extends State<CameraDashboard> {
     if (mounted) setState(() => recording = !recording);
   }
 
+  Future<void> _openCalibration() async {
+    final connected = cameras
+        .where((camera) => camera.state == CameraConnectionState.connected)
+        .toList();
+    final updated = await Navigator.push<Map<String, CameraCalibrationProfile>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CalibrationScreen(
+          cameras: connected,
+          initialProfiles: calibrationProfiles,
+        ),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => calibrationProfiles.addAll(updated));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Calibration applied to combined view')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final connectedCount = cameras
@@ -100,10 +130,7 @@ class _CameraDashboardState extends State<CameraDashboard> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  'Three-camera control centre',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text('Three-camera control centre', style: Theme.of(context).textTheme.headlineSmall),
                 Text('$connectedCount/${cameras.length} cameras connected'),
                 const SizedBox(height: 12),
                 FilledButton.icon(
@@ -123,17 +150,11 @@ class _CameraDashboardState extends State<CameraDashboard> {
                             final updated = await Navigator.push<CameraDevice>(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => CameraSettingsScreen(
-                                  camera: entry.value,
-                                  adapter: widget.adapter,
-                                ),
+                                builder: (_) => CameraSettingsScreen(camera: entry.value, adapter: widget.adapter),
                               ),
                             );
                             if (updated != null && mounted) {
-                              setState(() {
-                                cameras = List<CameraDevice>.of(cameras)
-                                  ..[entry.key] = updated;
-                              });
+                              setState(() => cameras = List<CameraDevice>.of(cameras)..[entry.key] = updated);
                             }
                           }
                         : null,
@@ -146,15 +167,19 @@ class _CameraDashboardState extends State<CameraDashboard> {
                   label: Text(recording ? 'Stop all recordings' : 'Record all'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: connectedCount == 0 ? null : _openCalibration,
+                  icon: const Icon(Icons.tune),
+                  label: const Text('Calibrate & synchronize'),
+                ),
+                OutlinedButton.icon(
                   onPressed: connectedCount == 0
                       ? null
                       : () => Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => CombinedViewScreen(
-                                cameras: cameras
-                                    .where((camera) => camera.state == CameraConnectionState.connected)
-                                    .toList(),
+                                cameras: cameras.where((camera) => camera.state == CameraConnectionState.connected).toList(),
+                                profiles: calibrationProfiles,
                               ),
                             ),
                           ),
@@ -168,13 +193,7 @@ class _CameraDashboardState extends State<CameraDashboard> {
 }
 
 class _CameraCard extends StatelessWidget {
-  const _CameraCard({
-    required this.camera,
-    required this.busy,
-    required this.onConnectionToggle,
-    required this.onSnapshot,
-    required this.onConfigure,
-  });
+  const _CameraCard({required this.camera, required this.busy, required this.onConnectionToggle, required this.onSnapshot, required this.onConfigure});
   final CameraDevice camera;
   final bool busy;
   final VoidCallback onConnectionToggle;
@@ -190,75 +209,40 @@ class _CameraCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.videocam),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    camera.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                const Icon(Icons.circle, size: 12),
-                const SizedBox(width: 4),
-                Text(camera.state.name),
-              ],
-            ),
+            Row(children: [
+              const Icon(Icons.videocam),
+              const SizedBox(width: 8),
+              Expanded(child: Text(camera.name, style: Theme.of(context).textTheme.titleMedium)),
+              const Icon(Icons.circle, size: 12),
+              const SizedBox(width: 4),
+              Text(camera.state.name),
+            ]),
             const SizedBox(height: 10),
             AspectRatio(
               aspectRatio: 16 / 9,
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
                 child: Center(
                   child: connected
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.camera, size: 42),
-                            Text('${camera.settings.resolution} • ${camera.settings.fps} FPS'),
-                            Text('SIMULATED ${camera.position.name.toUpperCase()} FEED'),
-                          ],
-                        )
-                      : const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.videocam_off, size: 42),
-                            Text('Camera disconnected'),
-                          ],
-                        ),
+                      ? Column(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.camera, size: 42),
+                          Text('${camera.settings.resolution} • ${camera.settings.fps} FPS'),
+                          Text('SIMULATED ${camera.position.name.toUpperCase()} FEED'),
+                        ])
+                      : const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.videocam_off, size: 42), Text('Camera disconnected')]),
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: busy ? null : onConnectionToggle,
-                  icon: busy
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(connected ? Icons.link_off : Icons.link),
-                  label: Text(connected ? 'Disconnect' : 'Connect'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: connected ? onSnapshot : null,
-                  icon: const Icon(Icons.photo_camera),
-                  label: const Text('Snapshot'),
-                ),
-                OutlinedButton(
-                  onPressed: onConfigure,
-                  child: const Text('Configure camera'),
-                ),
-              ],
-            ),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              FilledButton.tonalIcon(
+                onPressed: busy ? null : onConnectionToggle,
+                icon: busy ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(connected ? Icons.link_off : Icons.link),
+                label: Text(connected ? 'Disconnect' : 'Connect'),
+              ),
+              OutlinedButton.icon(onPressed: connected ? onSnapshot : null, icon: const Icon(Icons.photo_camera), label: const Text('Snapshot')),
+              OutlinedButton(onPressed: onConfigure, child: const Text('Configure camera')),
+            ]),
           ],
         ),
       ),
@@ -267,8 +251,9 @@ class _CameraCard extends StatelessWidget {
 }
 
 class CombinedViewScreen extends StatelessWidget {
-  const CombinedViewScreen({super.key, required this.cameras});
+  const CombinedViewScreen({super.key, required this.cameras, required this.profiles});
   final List<CameraDevice> cameras;
+  final Map<String, CameraCalibrationProfile> profiles;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -277,23 +262,35 @@ class CombinedViewScreen extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              const Text(
-                'Simulator composition preview. Native OpenCV stitching will plug into this surface.',
-              ),
+              const Text('Simulator composition preview. Calibration transforms are applied here before the native/OpenCV stitching adapter is introduced.'),
               const SizedBox(height: 16),
               Expanded(
-                child: Row(
-                  children: cameras
-                      .map(
-                        (camera) => Expanded(
-                          child: Card(
-                            child: Center(
-                              child: Text(camera.position.name.toUpperCase()),
+                child: ClipRect(
+                  child: Row(
+                    children: cameras.map((camera) {
+                      final profile = profiles[camera.id] ?? const CameraCalibrationProfile();
+                      return Expanded(
+                        child: Transform.translate(
+                          offset: Offset(profile.horizontalOffset, profile.verticalOffset),
+                          child: Transform.rotate(
+                            angle: profile.rotationDegrees * 3.141592653589793 / 180,
+                            child: Transform.scale(
+                              scale: profile.scale,
+                              child: Card(
+                                child: Center(
+                                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.camera_alt, size: 42),
+                                    Text(camera.position.name.toUpperCase()),
+                                    Text('sync ${profile.syncDelayMs} ms'),
+                                  ]),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      )
-                      .toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ],
