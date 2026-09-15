@@ -15,9 +15,9 @@ class _CameraSettingsScreenState extends State<CameraSettingsScreen> {
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.camera.name)),
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      DropdownButtonFormField<String>(value: settings.resolution, decoration: const InputDecoration(labelText: 'Resolution'), items: ['1280x720','1920x1080'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => setState(() => settings = settings.copyWith(resolution: v))),
+      DropdownButtonFormField<String>(initialValue: settings.resolution, decoration: const InputDecoration(labelText: 'Resolution'), items: ['1280x720','1920x1080'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => setState(() => settings = settings.copyWith(resolution: v))),
       const SizedBox(height: 12),
-      DropdownButtonFormField<int>(value: settings.fps, decoration: const InputDecoration(labelText: 'Frame rate'), items: [24,30,60].map((v) => DropdownMenuItem(value: v, child: Text('$v FPS'))).toList(), onChanged: (v) => setState(() => settings = settings.copyWith(fps: v))),
+      DropdownButtonFormField<int>(initialValue: settings.fps, decoration: const InputDecoration(labelText: 'Frame rate'), items: [24,30,60].map((v) => DropdownMenuItem(value: v, child: Text('$v FPS'))).toList(), onChanged: (v) => setState(() => settings = settings.copyWith(fps: v))),
       const SizedBox(height: 12),
       Text('Zoom ${settings.zoom.toStringAsFixed(1)}x'),
       Slider(value: settings.zoom, min: 1, max: 4, divisions: 30, onChanged: (v) => setState(() => settings = settings.copyWith(zoom: v))),
