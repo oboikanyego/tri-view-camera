@@ -11,7 +11,7 @@ class CameraDashboard extends StatefulWidget {
 }
 
 class _CameraDashboardState extends State<CameraDashboard> {
-  List<CameraDevice> cameras = const [];
+  List<CameraDevice> cameras = <CameraDevice>[];
   bool loading = true;
   bool recording = false;
   final Set<String> busyCameraIds = {};
@@ -25,7 +25,12 @@ class _CameraDashboardState extends State<CameraDashboard> {
   Future<void> _discover() async {
     setState(() => loading = true);
     final found = await widget.adapter.discover();
-    if (mounted) setState(() { cameras = found; loading = false; });
+    if (mounted) {
+      setState(() {
+        cameras = List<CameraDevice>.of(found);
+        loading = false;
+      });
+    }
   }
 
   Future<void> _toggleConnection(int index) async {
@@ -35,7 +40,11 @@ class _CameraDashboardState extends State<CameraDashboard> {
       final updated = camera.state == CameraConnectionState.connected
           ? await widget.adapter.disconnect(camera)
           : await widget.adapter.connect(camera);
-      if (mounted) setState(() => cameras[index] = updated);
+      if (mounted) {
+        setState(() {
+          cameras = List<CameraDevice>.of(cameras)..[index] = updated;
+        });
+      }
     } finally {
       if (mounted) setState(() => busyCameraIds.remove(camera.id));
     }
@@ -121,7 +130,10 @@ class _CameraDashboardState extends State<CameraDashboard> {
                               ),
                             );
                             if (updated != null && mounted) {
-                              setState(() => cameras[entry.key] = updated);
+                              setState(() {
+                                cameras = List<CameraDevice>.of(cameras)
+                                  ..[entry.key] = updated;
+                              });
                             }
                           }
                         : null,
