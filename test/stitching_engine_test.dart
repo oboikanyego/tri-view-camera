@@ -27,7 +27,7 @@ StitchingInput input(String id, {bool active = true}) => StitchingInput(
     );
 
 void main() {
-  const engine = SimulatedStitchingEngine();
+  final engine = SimulatedStitchingEngine();
 
   test('composes active camera streams behind stitching boundary', () async {
     final result = await engine.compose([input('camera-1'), input('camera-2'), input('camera-3')]);
