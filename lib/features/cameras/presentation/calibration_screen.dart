@@ -3,8 +3,14 @@ import '../domain/calibration_profile.dart';
 import '../domain/camera_models.dart';
 
 class CalibrationScreen extends StatefulWidget {
-  const CalibrationScreen({super.key, required this.cameras});
+  const CalibrationScreen({
+    super.key,
+    required this.cameras,
+    this.initialProfiles = const <String, CameraCalibrationProfile>{},
+  });
+
   final List<CameraDevice> cameras;
+  final Map<String, CameraCalibrationProfile> initialProfiles;
 
   @override
   State<CalibrationScreen> createState() => _CalibrationScreenState();
@@ -12,11 +18,16 @@ class CalibrationScreen extends StatefulWidget {
 
 class _CalibrationScreenState extends State<CalibrationScreen> {
   late final Map<String, CameraCalibrationProfile> profiles = {
-    for (final camera in widget.cameras) camera.id: const CameraCalibrationProfile(),
+    for (final camera in widget.cameras)
+      camera.id: widget.initialProfiles[camera.id] ?? const CameraCalibrationProfile(),
   };
 
   void _update(String id, CameraCalibrationProfile profile) {
     setState(() => profiles[id] = profile);
+  }
+
+  void _save() {
+    Navigator.pop(context, Map<String, CameraCalibrationProfile>.of(profiles));
   }
 
   @override
@@ -36,9 +47,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
                 onChanged: (profile) => _update(camera.id, profile),
               ),
             FilledButton.icon(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Calibration profile saved for this session')),
-              ),
+              onPressed: _save,
               icon: const Icon(Icons.save),
               label: const Text('Save calibration'),
             ),
